@@ -26,15 +26,15 @@ import static org.apache.commons.lang3.math.NumberUtils.isCreatable;
 public class ElasticSearchMetric {
     private static final Logger logger = LoggerFactory.getLogger(ElasticSearchMetric.class);
     private static final String HOSTNAME = solveHostName();
-
-    private SampleResult sampleResult;
-    private String esTestMode;
-    private String esTimestamp;
-    private int ciBuildNumber;
-    private HashMap<String, Object> json;
-    private Set<String> fields;
-    private boolean allReqHeaders;
-    private boolean allResHeaders;
+    public static Map<String, Object>[] assertionArray;
+    private final SampleResult sampleResult;
+    private final String esTestMode;
+    private final String esTimestamp;
+    private final int ciBuildNumber;
+    private final HashMap<String, Object> json;
+    private final Set<String> fields;
+    private final boolean allReqHeaders;
+    private final boolean allResHeaders;
 
     public ElasticSearchMetric(
             SampleResult sr, String testMode, String timeStamp, int buildNumber,
@@ -64,7 +64,7 @@ public class ElasticSearchMetric {
      * @param context BackendListenerContext
      * @return a JSON Object as Map(String, Object)
      */
-    public Map<String, Object> getMetric(BackendListenerContext context) throws Exception {
+    public Map<String, Object> getMetric(BackendListenerContext context) {
         SimpleDateFormat sdf = new SimpleDateFormat(this.esTimestamp);
 
         //add all the default SampleResult parameters
@@ -94,8 +94,6 @@ public class ElasticSearchMetric {
         // Add the details according to the mode that is set
         switch (this.esTestMode) {
             case "debug":
-                addDetails();
-                break;
             case "error":
                 addDetails();
                 break;
@@ -122,9 +120,8 @@ public class ElasticSearchMetric {
     private void addAssertions() {
         AssertionResult[] assertionResults = this.sampleResult.getAssertionResults();
         if (assertionResults != null) {
-            Map<String, Object>[] assertionArray = new HashMap[assertionResults.length];
-            Integer i = 0;
-            String failureMessage = "";
+            int i = 0;
+            StringBuilder failureMessage = new StringBuilder();
             boolean isFailure = false;
             for (AssertionResult assertionResult : assertionResults) {
                 HashMap<String, Object> assertionMap = new HashMap<>();
@@ -132,20 +129,20 @@ public class ElasticSearchMetric {
                 isFailure = isFailure || assertionResult.isFailure() || assertionResult.isError();
                 assertionMap.put("failure", failure);
                 assertionMap.put("failureMessage", assertionResult.getFailureMessage());
-                failureMessage += assertionResult.getFailureMessage() + "\n";
+                failureMessage.append(assertionResult.getFailureMessage()).append("\n");
                 assertionMap.put("name", assertionResult.getName());
                 assertionArray[i] = assertionMap;
                 i++;
             }
             addFilteredJSON("AssertionResults", assertionArray);
-            addFilteredJSON("FailureMessage", failureMessage);
+            addFilteredJSON("FailureMessage", failureMessage.toString());
             addFilteredJSON("Success", !isFailure);
         }
     }
 
     /**
-     * This method adds the ElapsedTime as a key:value pair in the JSON object. Also, depending on whether or not the
-     * tests were launched from a CI tool (i.e Jenkins), it will add a hard-coded version of the ElapsedTime for results
+     * This method adds the ElapsedTime as a key:value pair in the JSON object. Also, depending on whether the
+     * tests were launched from a CI tool (i.e. Jenkins), it will add a hard-coded version of the ElapsedTime for results
      * comparison purposes
      */
     private void addElapsedTime() {
@@ -185,7 +182,7 @@ public class ElasticSearchMetric {
             String parameterName = pluginParameters.next();
 
             if (!parameterName.startsWith("es.") && context.containsParameter(parameterName)
-                    && !"".equals(parameter = context.getParameter(parameterName).trim())) {
+                    && !(parameter = context.getParameter(parameterName).trim()).isEmpty()) {
                 if (isCreatable(parameter)) {
                     addFilteredJSON(parameterName, Long.parseLong(parameter));
                 } else {
@@ -219,7 +216,7 @@ public class ElasticSearchMetric {
      *                      NOTE: This will be fixed as soon as a patch comes in for JMeter to change the behaviour.
      */
     private void parseHeadersAsJsonProps(boolean allReqHeaders, boolean allResHeaders) {
-        LinkedList<String[]> headersArrayList = new LinkedList<String[]>();
+        LinkedList<String[]> headersArrayList = new LinkedList<>();
 
         if (allReqHeaders) {
             headersArrayList.add(this.sampleResult.getRequestHeaders().split("\n"));
@@ -234,38 +231,34 @@ public class ElasticSearchMetric {
             headersArrayList.add(this.sampleResult.getResponseHeaders().split("\n"));
         }
 
-        for (String[] lines : headersArrayList) {
-            for (int i = 0; i < lines.length; i++) {
-                String[] header = lines[i].split(":", 2);
-
+        headersArrayList.forEach((String[] lines) -> {
+            for (String line : lines) {
+                String[] header = line.split(":", 2);
                 // if not all res/req headers and header contains special X-tag
                 if (!allReqHeaders && !allResHeaders && header.length > 1) {
                     if (header[0].startsWith("X-es-backend-")) {
-                        this.json.put(header[0].replaceAll("X-es-backend-", "").trim(), header[1].trim());
+                        ElasticSearchMetric.this.json.put(header[0].replaceAll("X-es-backend-", "").trim(), header[1].trim());
                     }
                 }
-
                 if ((allReqHeaders || allResHeaders) && header.length > 1) {
-                    this.json.put(header[0].trim(), header[1].trim());
+                    ElasticSearchMetric.this.json.put(header[0].trim(), header[1].trim());
                 }
             }
-        }
+        });
     }
 
     /**
      * Adds a given key-value pair to JSON if the key is contained in the field filter or in case of empty field filter
      *
-     * @param key
-     * @param value
      */
     private void addFilteredJSON(String key, Object value) {
-        if (this.fields.size() == 0 || this.fields.contains(key.toLowerCase())) {
+        if (this.fields.isEmpty() || this.fields.contains(key.toLowerCase())) {
             this.json.put(key, value);
         }
     }
 
     /**
-     * This method is meant to return the elapsed time in a human readable format. The purpose of this is mostly for
+     * This method is meant to return the elapsed time in a human-readable format. The purpose of this is mostly for
      * build comparison in Kibana. By doing this, the user is able to set the X-axis of his graph to this date and split
      * the series by build numbers. It allows him to overlap test results and see if there is regression or not.
      *
@@ -291,15 +284,15 @@ public class ElasticSearchMetric {
                     cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
         } else {
             sElapsed = String.format("%s %02d:%02d:%02d",
-                    DateTimeFormatter.ofPattern("yyyy-mm-dd").format(LocalDateTime.now()),
+                    DateTimeFormatter.ofPattern("yyyy-MM-dd").format(LocalDateTime.now()),
                     cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), cal.get(Calendar.SECOND));
         }
 
-        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-mm-dd HH:mm:ss");
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         try {
             return formatter.parse(sElapsed);
         } catch (ParseException e) {
-            logger.error("Unexpected error occured computing elapsed date", e);
+            logger.error("Unexpected error occurred computing elapsed date", e);
             return null;
         }
     }

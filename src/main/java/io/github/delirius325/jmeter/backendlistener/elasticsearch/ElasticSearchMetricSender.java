@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Objects;
 
 import org.apache.http.HttpStatus;
+import org.apache.http.ParseException;
 import org.apache.http.entity.ContentType;
 import org.apache.http.nio.entity.NStringEntity;
 import org.apache.http.util.EntityUtils;
@@ -16,23 +17,24 @@ import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ElasticSearchMetricSender {
     private static final Logger logger = LoggerFactory.getLogger(ElasticSearchMetricSender.class);
-    private RestClient client;
-    private String esIndex;
-    private List<String> metricList;
-    private String authUser;
-    private String authPwd;
-    private String awsEndpoint;
+    private final RestClient client;
+    private final String esIndex;
+    private final List<String> metricList;
+    private final String authUser;
+    private final String authPwd;
+    private final String awsEndpoint;
 
     public ElasticSearchMetricSender(RestClient cli, String index, String user, String pwd, String endpoint) {
         this.client = cli;
         this.esIndex = index;
-        this.metricList = new LinkedList<String>();
+        this.metricList = new LinkedList<>();
         this.authUser = user.trim();
         this.authPwd = pwd.trim();
         this.awsEndpoint = endpoint;
@@ -75,7 +77,7 @@ public class ElasticSearchMetricSender {
      * This method sets the Basic Authorization header to requests
      */
     private Request setAuthorizationHeader(Request request) {
-        if (this.awsEndpoint.equals("") && !this.authPwd.equals("")) {
+        if (this.awsEndpoint.isEmpty() && !this.authPwd.isEmpty()) {
             String encodedCredentials = Base64.getEncoder()
                     .encodeToString((this.authUser + ":" + this.authPwd).getBytes());
             RequestOptions.Builder options = request.getOptions().toBuilder();
@@ -115,9 +117,9 @@ public class ElasticSearchMetricSender {
                  }else{
                     elasticSearchVersion = Integer.parseInt(elasticVersion.split("\\.")[0]);
                  }
-                 logger.info("ElasticSearch Version : "  + Integer.toString(elasticSearchVersion));
+                 logger.info("ElasticSearch Version : "  + elasticSearchVersion);
              }
-         } catch (Exception e) {
+         } catch (IOException | NumberFormatException | ParseException | JSONException e) {
              if (logger.isErrorEnabled()) {
                  logger.error("Exception" + e);
                  logger.error("ElasticSearch Backend Listener was unable to perform request to the ElasticSearch engine. Check your JMeter console for more info.");
@@ -128,8 +130,8 @@ public class ElasticSearchMetricSender {
     
 
     /**
-     * This method sends the ElasticSearch documents for each document present in the list (metricList). All is being
-     * sent through the low-level ElasticSearch REST Client.
+     * This method sends the ElasticSearch documents for each document present in the list (metricList).All is being
+ sent through the low-level ElasticSearch REST Client.
      */
     public void sendRequest(int elasticSearchVersionPrefix) {
     	Request request;
@@ -139,16 +141,17 @@ public class ElasticSearchMetricSender {
     		 request = new Request("POST", "/" + this.esIndex + "/SampleResult/_bulk");
  			 actionMetaData = String.format(SEND_BULK_REQUEST, this.esIndex, "SampleResult");
     	}
+        // https://stackoverflow.com/questions/56419541/elasticsearch-specifying-types-in-bulk-requests-is-deprecated
     	else {
     		 request = new Request("POST", "/" + this.esIndex + "/_bulk");
     		 actionMetaData = String.format(SEND_BULK_REQUEST, this.esIndex);
     	}
     		
-        for (String metric : this.metricList) {
+        this.metricList.forEach((String metric) -> {
             bulkRequestBody.append(actionMetaData);
             bulkRequestBody.append(metric);
             bulkRequestBody.append("\n");
-        }
+            });
 
         request.setEntity(new NStringEntity(bulkRequestBody.toString(), ContentType.APPLICATION_JSON));
 
@@ -162,10 +165,10 @@ public class ElasticSearchMetricSender {
                                  this.esIndex, response.getStatusLine().toString());
                 } else {
                     logger.debug("ElasticSearch Backend Listener has successfully written to ES instance [{}] _bulk request {}",
-                                 client.getNodes().iterator().next().getHost().toHostString(), request.toString());
+                                 client.getNodes().iterator().next().getHost().toHostString(), request);
                 }
             }
-        } catch (Exception e) {
+        } catch (IOException e) {
             if (logger.isErrorEnabled()) {
                 logger.error("Exception" + e);
                 logger.error("Elastic Search Request End Point: " + request.getEndpoint());
