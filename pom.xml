@@ -60,15 +60,15 @@
 		<junit.vintage.version>${junit.jupiter.version}</junit.vintage.version>
 		<junit.jupiter.version>5.8.2</junit.jupiter.version>
 		<junit.platform.version>1.8.2</junit.platform.version>
-		<org.apache.jmeter.version>5.4.3</org.apache.jmeter.version>
+		<org.apache.jmeter.version>5.6.3</org.apache.jmeter.version>
 		<org.apache.commons>3.12.0</org.apache.commons>
-		<org.elasticsearch.client>8.2.0</org.elasticsearch.client>
+		<org.elasticsearch.client>8.12.0</org.elasticsearch.client>
 	</properties>
 	<dependencies>
 		<dependency>
 			<groupId>org.json</groupId>
 			<artifactId>json</artifactId>
-			<version>20220320</version>
+			<version>20231013</version>
 		</dependency>
 		<dependency>
 			<groupId>com.google.code.gson</groupId>
@@ -142,12 +142,12 @@
 		<dependency>
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-java-sdk-core</artifactId>
-			<version>1.11.495</version>
+			<version>1.12.705</version>
 		</dependency>
 		<dependency>
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-java-sdk-secretsmanager</artifactId>
-			<version>1.11.495</version>
+			<version>1.12.705</version>
 		</dependency>
 		<dependency>
 			<groupId>vc.inreach.aws</groupId>
