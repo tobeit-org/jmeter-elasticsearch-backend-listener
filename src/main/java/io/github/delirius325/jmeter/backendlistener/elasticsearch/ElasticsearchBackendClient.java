@@ -1,9 +1,10 @@
 package io.github.delirius325.jmeter.backendlistener.elasticsearch;
 
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
+import com.amazonaws.auth.AWS4Signer;
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.http.AWSRequestSigningApacheInterceptor;
+import com.google.gson.Gson;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequestInterceptor;
@@ -20,14 +21,12 @@ import org.elasticsearch.client.RestClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.amazonaws.auth.AWS4Signer;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.http.AWSRequestSigningApacheInterceptor;
-import com.google.gson.Gson;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ElasticsearchBackendClient extends AbstractBackendListenerClient {
 
